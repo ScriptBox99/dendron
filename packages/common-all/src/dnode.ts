@@ -370,6 +370,7 @@ export class NoteUtils {
       type: "backlink",
       position: link.position,
       value: link.value,
+      alias: link.alias,
     });
   }
 
