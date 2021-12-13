@@ -91,6 +91,7 @@ import { DendronCodeWorkspace } from "./workspace/codeWorkspace";
 import { DendronNativeWorkspace } from "./workspace/nativeWorkspace";
 import { WorkspaceInitFactory } from "./workspace/workspaceInitializer";
 import { WSUtils } from "./WSUtils";
+import { AutoCompletableRegister } from "./utils/registers/AutoCompletableRegister";
 
 const MARKDOWN_WORD_PATTERN = new RegExp("([\\w\\.\\#]+)");
 // === Main
@@ -979,6 +980,16 @@ async function _setupCommands(
 
   ALL_COMMANDS.map((Cmd) => {
     const cmd = new Cmd();
+
+    // Register commands that implement on `onAutoComplete` with AutoCompletableRegister
+    // to be able to be invoked with auto completion action. (TS does not appear to
+    // implement robust interface checking hence using ts-ignore after doing our own check)
+    // @ts-ignore
+    if (typeof cmd.onAutoComplete === "function") {
+      // @ts-ignore
+      AutoCompletableRegister.register(cmd.key, cmd);
+    }
+
     if (!existingCommands.includes(cmd.key))
       context.subscriptions.push(
         vscode.commands.registerCommand(
