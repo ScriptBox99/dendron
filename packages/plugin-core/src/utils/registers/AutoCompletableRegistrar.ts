@@ -4,7 +4,7 @@ import { ErrorFactory } from "@dendronhq/common-all";
 /**
  * Populated during initialization with commands that implement function: cmd.onAutoComplete
  * */
-export class AutoCompletableRegister {
+export class AutoCompletableRegistrar {
   static _UI_AUTOCOMPLETE_COMMANDS = new Map<string, AutoCompletable>();
 
   static register = (key: string, cmd: AutoCompletable) => {
