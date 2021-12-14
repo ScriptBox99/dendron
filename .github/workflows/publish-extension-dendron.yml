@@ -53,6 +53,7 @@ jobs:
           NPM_EMAIL: ${{ secrets.NPM_EMAIL }}
           NPM_USERNAME: ${{ secrets.NPM_USERNAME }}
           NPM_PWD: ${{ secrets.NPM_PWD }}
+          NPM_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
         run: |
           echo "VSIX_FILE_NAME=dendron-${{ env.DENDRON_RELEASE_VERSION }}.vsix" >> $GITHUB_ENV
           echo "VSIX_RELATIVE_PATH=./packages/plugin-core/dendron-${{ env.DENDRON_RELEASE_VERSION }}.vsix" >> $GITHUB_ENV
