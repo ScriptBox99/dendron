@@ -6,8 +6,11 @@ import {
   FoundRefT,
   sortPaths,
 } from "../utils/md";
-import _ from "lodash";
-import { ICONS } from "../constants";
+import _, { Dictionary } from "lodash";
+import { DendronContext, ICONS } from "../constants";
+import { Logger } from "../logger";
+import { VSCodeUtils } from "../vsCodeUtils";
+import { BacklinkSortOrder } from "../types";
 
 export type BacklinkFoundRef = FoundRefT & {
   parentBacklink: Backlink | undefined;
@@ -32,6 +35,14 @@ export class Backlink extends vscode.TreeItem {
   }
 }
 
+function shallowFirstPathSort(
+  referencesByPath: Dictionary<[unknown, ...unknown[]]>
+) {
+  return sortPaths(Object.keys(referencesByPath), {
+    shallowFirst: true,
+  });
+}
+
 /**
  * Given the fsPath of current note, return the list of backlink sources as tree view items.
  * @param fsPath fsPath of current note
@@ -39,7 +50,8 @@ export class Backlink extends vscode.TreeItem {
  */
 const pathsToBacklinkSourceTreeItems = async (
   fsPath: string,
-  isLinkCandidateEnabled: boolean | undefined
+  isLinkCandidateEnabled: boolean | undefined,
+  sortOrder: BacklinkSortOrder
 ) => {
   const refFromFilename = path.parse(fsPath).name;
   const referencesByPath = _.groupBy(
@@ -47,9 +59,39 @@ const pathsToBacklinkSourceTreeItems = async (
     ({ location }) => location.uri.fsPath
   );
 
-  const pathsSorted = sortPaths(Object.keys(referencesByPath), {
-    shallowFirst: true,
-  });
+  let pathsSorted: string[];
+  if (sortOrder === BacklinkSortOrder.PathNames) {
+    pathsSorted = shallowFirstPathSort(referencesByPath);
+  } else if (sortOrder === BacklinkSortOrder.LastUpdated) {
+    pathsSorted = Object.keys(referencesByPath).sort((p1, p2) => {
+      const ref1 = referencesByPath[p1];
+      const ref2 = referencesByPath[p2];
+
+      if (
+        ref1.length === 0 ||
+        ref2.length === 0 ||
+        ref1[0].note === undefined ||
+        ref2[0].note === undefined
+      ) {
+        Logger.error({
+          msg: "Missing info for well formed backlink sort by last updated.",
+        });
+
+        return 0;
+      }
+
+      const ref2Updated = ref2[0].note.updated;
+      const ref1Updated = ref1[0].note.updated;
+
+      // We want to sort in descending order by last updated
+      return ref2Updated - ref1Updated;
+    });
+  } else {
+    Logger.error({
+      msg: `Unsupported sort order: '${sortOrder}' falling back to path sort order.`,
+    });
+    pathsSorted = shallowFirstPathSort(referencesByPath);
+  }
 
   if (!pathsSorted.length) {
     return [];
@@ -171,6 +213,7 @@ const refsToBacklinkTreeItems = (
 export default class BacklinksTreeDataProvider
   implements vscode.TreeDataProvider<Backlink>
 {
+  private _sortOrder: BacklinkSortOrder = BacklinkSortOrder.PathNames;
   private _onDidChangeTreeData: vscode.EventEmitter<Backlink | undefined> =
     new vscode.EventEmitter<Backlink | undefined>();
   readonly onDidChangeTreeData: vscode.Event<Backlink | undefined> =
@@ -179,6 +222,8 @@ export default class BacklinksTreeDataProvider
 
   constructor(isLinkCandidateEnabled: boolean | undefined) {
     this.isLinkCandidateEnabled = isLinkCandidateEnabled;
+
+    this.updateSortOrder(BacklinkSortOrder.PathNames);
   }
 
   refresh(): void {
@@ -197,6 +242,17 @@ export default class BacklinksTreeDataProvider
     }
   }
 
+  updateSortOrder(sortOrder: BacklinkSortOrder) {
+    this._sortOrder = sortOrder;
+
+    VSCodeUtils.setContextStringValue(
+      DendronContext.BACKLINKS_SORT_ORDER,
+      sortOrder
+    );
+
+    this.refresh();
+  }
+
   public async getChildren(element?: Backlink) {
     const fsPath = vscode.window.activeTextEditor?.document.uri.fsPath;
 
@@ -208,7 +264,8 @@ export default class BacklinksTreeDataProvider
       }
       return pathsToBacklinkSourceTreeItems(
         fsPath,
-        this.isLinkCandidateEnabled
+        this.isLinkCandidateEnabled,
+        this._sortOrder
       );
     } else if (element.label === "Linked" || element.label === "Candidates") {
       // 3rd-level children.

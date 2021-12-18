@@ -30,6 +30,7 @@ export type CreateNoteOptsV4 = {
   genRandomId?: boolean;
   noWrite?: boolean;
   custom?: any;
+  updated?: number;
 };
 
 export type CreateNoteInputOpts = {
@@ -139,14 +140,22 @@ export class NoteTestUtilsV4 {
    * @returns
    */
   static createNote = async (opts: CreateNoteOptsV4) => {
-    const { fname, vault, props, body, genRandomId, noWrite, wsRoot, custom } =
-      _.defaults(opts, { noWrite: false });
+    const {
+      fname,
+      vault,
+      props,
+      body,
+      genRandomId,
+      noWrite,
+      wsRoot,
+      custom,
+      updated,
+    } = _.defaults(opts, { noWrite: false, updated: 1 });
     /**
      * Make sure snapshots stay consistent
      */
     const defaultOpts = {
       created: 1,
-      updated: 1,
       id: genRandomId ? genUUID() : fname,
     };
 
@@ -157,6 +166,7 @@ export class NoteTestUtilsV4 {
       fname,
       vault,
       body,
+      updated,
     });
     if (!noWrite) {
       await note2File({ note, vault, wsRoot });
